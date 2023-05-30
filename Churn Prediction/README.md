@@ -16,4 +16,4 @@ The data set contains the following attributes:
 - Churn: The status of whether the customer churned
 1. Apply three different simple machine learning models, and justify (based on the results) which machine learning model you would choose.
 2. Select the machine learning model that you have chosen in task 1. Now try optimizing your results by applying the advanced concepts.
-3. Apply one ensemble learning technique (lecture 05) to see whether those techniques lead to a better performance than in task 1 and task 2. 
+3. Apply one ensemble learning technique to see whether those techniques lead to a better performance than in task 1 and task 2. 
