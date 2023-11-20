@@ -1,5 +1,5 @@
 # Churn Prediction
-You have been hired by a young FinTech startup that serves European customers with different financial products (e.g., banking, credit cards, ...). The startup is currently facing some headwinds because many of the customers are leaving the FinTech. As a data scientist, your job is to build a machine learning model that predicts which customers are about to leave. With this, the FinTech startup can actively engage with the identified customers and try to prevent them from leaving.
+A FinTech startup that serves European customers with different financial products (e.g., banking, credit cards, ...) is currently facing some headwinds because many of the customers are leaving the FinTech. The data scientist should build a machine learning model that predicts which customers are about to leave. With this, the FinTech startup can actively engage with the identified customers and try to prevent them from leaving.
 
 The data set contains the following attributes:
 
