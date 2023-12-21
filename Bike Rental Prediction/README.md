@@ -24,5 +24,5 @@ Attribute Information:
 Tasks:
 #### 1. Train and evaluate two different multiple regression models using different optimization algorithms. 
 #### 2. Train and evaluate a polynomial regression model. Test at least two different models. 
-#### 3. Select the machine learning model that you have chosen in task 2 and optimize it.
+#### 3. Select the machine learning model in task 2 and optimize it.
 #### 4. Apply an ensemble learning technique to see whether this technique leads to a better performance.
