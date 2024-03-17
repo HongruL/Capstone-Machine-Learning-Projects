@@ -3,10 +3,11 @@ from pathlib import Path
 from collections import Counter
 import numpy as np
 from sklearn.model_selection import train_test_split
-from sklearn.base import BaseEstimator, TransformerMixin
-from html import unescape
+from sklearn.pipeline import Pipeline
+from sklearn.linear_model import LogisticRegression
+from sklearn.model_selection import cross_val_score
 
-from email_to_word_count import EmailToWordCounterTransformer
+from preprocessing import EmailToWordCounterTransformer, WordCounterToVectorTransformer
 
 def fetch_spam_data():
     spam_root = "http://spamassassin.apache.org/old/publiccorpus/"
@@ -61,10 +62,15 @@ y = np.array([0] * len(ham_emails) + [1] * len(spam_emails))
 
 X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
+# Preprocessing
+preprocessor = Pipeline([
+    ('email_to_wordcount', EmailToWordCounterTransformer()),
+    ('wordcount_to_vector', WordCounterToVectorTransformer())
+])
 
-
-
-# Processing
-stemmer = nltk.PorterStemmer()
-
-# A transformer to convert emails to word counters.
+log_clf = Pipeline([
+    ('preprocessor', preprocessor),
+    ('classifier', LogisticRegression(max_iter=1000, random_state=42))
+])
+score = cross_val_score(log_clf, X_train, y_train, cv=3)
+print(score.mean())
