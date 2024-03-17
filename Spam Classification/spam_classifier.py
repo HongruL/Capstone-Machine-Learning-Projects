@@ -6,6 +6,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.pipeline import Pipeline
 from sklearn.linear_model import LogisticRegression
 from sklearn.model_selection import cross_val_score
+from sklearn.metrics import confusion_matrix
 
 from preprocessing import EmailToWordCounterTransformer, WordCounterToVectorTransformer
 
@@ -74,3 +75,9 @@ log_clf = Pipeline([
 ])
 score = cross_val_score(log_clf, X_train, y_train, cv=3)
 print(score.mean())
+
+# Training and Testing
+log_clf.fit(X_train, y_train)
+y_pred = log_clf.predict(X_test)
+
+print("confusion matrix:\n", confusion_matrix(y_test, y_pred))
