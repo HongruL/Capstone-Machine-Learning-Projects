@@ -3,13 +3,33 @@ from .remove_tags import strip_html_tags
 from .expanding_contractions import expand_contractions
 from .lemmatization import lemmatize_text
 from .remove_stopwords import remove_stopwords
+import unicodedata
+from nltk.corpus import wordnet
 
 def remove_special_characters(text, remove_digits=False):
     pattern = r'[^a-zA-z0-9\s]' if not remove_digits else r'[^a-zA-z\s]'
     text = re.sub(pattern, '', text)
     return text
 
-def normalize_text(text_list, html_stripping=True,
+def remove_accented_chars(text):
+    text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('utf-8', 'ignore')
+    return text
+
+
+def remove_repeated_characters(tokens):
+    repeat_pattern = re.compile(r'(\w*)(\w)\2(\w*)')
+    match_substitution = r'\1\2\3'
+
+    def replace(old_word):
+        if wordnet.synsets(old_word):
+            return old_word
+        new_word = repeat_pattern.sub(match_substitution, old_word)
+        return replace(new_word) if new_word != old_word else new_word
+
+    correct_tokens = [replace(word) for word in tokens]
+    return correct_tokens
+
+def normalize_text(text_list, html_stripping=True, accented_char_removal= True,
                    to_remove_digits=True, to_remove_stopwords=True,
                    to_lemmentize=True, to_expand_contractions=True,
                    lowercase=True, to_remove_special_characters=True):
@@ -19,6 +39,7 @@ def normalize_text(text_list, html_stripping=True,
     normalized_corpus = []
     for text in text_list:
         if html_stripping: text = strip_html_tags(text)
+        if accented_char_removal: text = remove_accented_chars(text)
         if to_expand_contractions: text = expand_contractions(text)
         if lowercase: text = text.lower()
         text = re.sub(r'[\r\n]+', ' ', text)
