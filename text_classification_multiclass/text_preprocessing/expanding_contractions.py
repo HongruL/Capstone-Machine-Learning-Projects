@@ -1,4 +1,4 @@
-from contractions import CONTRACTION_MAP
+from .contractions import CONTRACTION_MAP
 import re
 
 
