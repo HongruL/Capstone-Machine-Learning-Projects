@@ -1,15 +1,16 @@
 import re
-from .remove_tags import strip_html_tags
-from .expanding_contractions import expand_contractions
-from .lemmatization import lemmatize_text
-from .remove_stopwords import remove_stopwords
+from text_preprocessing.remove_tags import strip_html_tags
+from text_preprocessing.expanding_contractions import expand_contractions
+from text_preprocessing.lemmatization import lemmatize_text
+from text_preprocessing.remove_stopwords import remove_stopwords
 import unicodedata
 from nltk.corpus import wordnet
 
-def remove_special_characters(text, remove_digits=False):
-    pattern = r'[^a-zA-z0-9\s]' if not remove_digits else r'[^a-zA-z\s]'
+def remove_special_characters(text, remove_digits=True):
+    pattern = r'[^a-zA-Z\s]|_|\[|\]' if remove_digits else r'[^a-zA-Z0-9\s]|_|\[|\]'
     text = re.sub(pattern, '', text)
     return text
+
 
 def remove_accented_chars(text):
     text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('utf-8', 'ignore')
@@ -29,29 +30,30 @@ def remove_repeated_characters(tokens):
     correct_tokens = [replace(word) for word in tokens]
     return correct_tokens
 
-def normalize_text(text_list, html_stripping=True, accented_char_removal= True,
-                   to_remove_digits=True, to_remove_stopwords=True,
-                   to_lemmentize=True, to_expand_contractions=True,
-                   lowercase=True, to_remove_special_characters=True):
+def normalize_text(text_list, html_stripping=True, accented_char_removal=True,
+                   to_remove_digits=True, to_lemmentize=True,
+                   to_expand_contractions=True, to_remove_special_characters=True):
     """
     normalize each document in the corpus
     """
     normalized_corpus = []
     for text in text_list:
+        # Strip HTML
         if html_stripping: text = strip_html_tags(text)
+        # Remove accented characters
         if accented_char_removal: text = remove_accented_chars(text)
+        # Expand contractions
         if to_expand_contractions: text = expand_contractions(text)
-        if lowercase: text = text.lower()
-        text = re.sub(r'[\r\n]+', ' ', text)
-        if to_lemmentize: text = lemmatize_text(text)
+        # Remove special characters and\or digits
         if to_remove_special_characters:
-            #special_char_pattern = re.compile(r'([{.()!-}])')
-            special_char_pattern = re.compile(r'([{.(-)!}])')
-            text = special_char_pattern.sub(r' \1 ', text)
+            # special_char_pattern = re.compile(r'([{.(-)!}])')
+            # # insert spaces between special characters to isolate them
+            # text = special_char_pattern.sub(r' \1 ', text)
             text = remove_special_characters(text, remove_digits=to_remove_digits)
-        # remove extra whitespace
+        # Remove extra whitespace
         text = re.sub(r'\s+', ' ', text)
-        if to_remove_stopwords: text = remove_stopwords(text, is_lowercase=lowercase)
+        # Lemmatize text
+        if to_lemmentize: text = lemmatize_text(text)
 
         normalized_corpus.append(text)
 
@@ -63,5 +65,8 @@ if __name__ == '__main__':
                        "beating the previous record-holder China's Sunway TaihuLight. With a peak performance "
                        "of 200,000 trillion calculations per second, it is over twice as fast as Sunway TaihuLight, "
                        "which is capable of 93,000 trillion calculations per second. Summit has 4,608 servers, "
-                       "which reportedly take up the size of two tennis courts.")
+                       "which reportedly take up the size of two tennis courts. fabrication ^^^^ establish story place iowa ^^^^^^^^ i")
     print(normalize_text([sample_text])[0])
+
+    text = "^^^^ establish story place iowa ^^^^^^^^ i"
+    print(remove_special_characters(text))
