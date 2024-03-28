@@ -1,8 +1,8 @@
 import nltk
 
 
+stopwords_list = nltk.corpus.stopwords.words('english')
 def remove_stopwords(text, is_lowercase=False):
-    stopwords_list = nltk.corpus.stopwords.words('english')
     tokens = [token.strip() for token in nltk.word_tokenize(text)]
     if is_lowercase:
         filtered_tokens = [token for token in tokens if token not in stopwords_list]
