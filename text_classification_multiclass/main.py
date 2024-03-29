@@ -1,6 +1,6 @@
 from sklearn.datasets import fetch_20newsgroups
 import numpy as np
-import matplotlib.pyplot as plt
+from scipy.stats import loguniform
 import pandas as pd
 from joblib import Memory
 from pathlib import Path
@@ -141,4 +141,66 @@ print(metrics_compare)
 # try_y_score_lr = cross_val_predict(try_lr_clf, X_train, y_train, cv=3, n_jobs=-1, method='predict_proba')
 # print(pd.Series(get_metrics(try_lr_clf, try_y_pred_train_lr, try_y_score_lr)))
 
-# Randomized Search
+# Hyperparameter tuning with Randomized Search on MultinomialNB and Logistic regression model
+# Specify the parameter distributions
+mnb_param_dist = {
+    'mnb__alpha': loguniform(1e-5, 1e0)
+}
+random_search_mnb = RandomizedSearchCV(estimator=mnb_clf, param_distributions=mnb_param_dist,
+                                       n_iter=50, n_jobs=-1, random_state=42, cv=3)
+random_search_mnb.fit(X_train, y_train)
+tuned_mnb = random_search_mnb.best_estimator_
+y_pred_train_tuned_mnb = tuned_mnb.predict(X_train)
+y_score_tuned_mnb = cross_val_predict(tuned_mnb, X_train, y_train, cv=3, n_jobs=-1, method='predict_proba')
+
+lr_param_dist = {
+    'lr__C': loguniform(1e-4, 1e2)
+}
+random_search_lr = RandomizedSearchCV(estimator=lr_clf, param_distributions=lr_param_dist,
+                                      n_iter=100, n_jobs=-1, random_state=42, cv=3)
+random_search_lr.fit(X_train, y_train)
+tuned_lr = random_search_lr.best_estimator_
+y_pred_train_tuned_lr = tuned_lr.predict(X_train)
+y_score_tuned_lr = cross_val_predict(tuned_lr, X_train, y_train, cv=3, n_jobs=-1, method='predict_proba')
+
+# Evaluate tuned models
+metrics_df.append(pd.Series(get_metrics(tuned_mnb, y_pred_train_tuned_mnb, y_score_tuned_mnb), name='tuned mnb').to_frame())
+metrics_df.append(pd.Series(get_metrics(tuned_lr, y_pred_train_tuned_lr, y_score_tuned_lr), name='tuned lr').to_frame())
+
+metrics_compare = pd.concat(metrics_df, axis=1)
+print(metrics_compare)
+
+# Bagging
+from sklearn.ensemble import VotingClassifier
+from sklearn.base import clone
+voting_clf = VotingClassifier([
+    ('tuned_mnb', clone(tuned_mnb)),
+    ('tuned_lr', clone(tuned_lr))
+], voting='soft')
+voting_clf.fit(X_train, y_train)
+y_pred_train_voting_clf = voting_clf.predict(X_train)
+y_score_voting_clf = cross_val_predict(voting_clf, X_train, y_train, cv=3, n_jobs=-1, method='predict_proba')
+metrics_df.append(pd.Series(get_metrics(voting_clf, y_pred_train_voting_clf, y_score_voting_clf), name='voting clf').to_frame())
+
+metrics_compare = pd.concat(metrics_df, axis=1)
+print(metrics_compare)
+
+# Test
+y_pred_test_mnb = tuned_mnb.predict(X_test)
+y_pred_test_lr = tuned_lr.predict(X_test)
+y_pred_test_voting_clf = voting_clf.predict(X_test)
+
+test_results = {
+    'accuracy': [],
+    'precision': [],
+    'recall': [],
+    'f1': []
+}
+for clf in (tuned_mnb, tuned_lr, voting_clf):
+    test_results['accuracy'].append(accuracy_score(y_test, clf.predict(X_test)))
+    test_results['precision'].append(precision_score(y_test, clf.predict(X_test), average='weighted'))
+    test_results['recall'].append(recall_score(y_test, clf.predict(X_test), average='weighted'))
+    test_results['f1'].append(f1_score(y_test, clf.predict(X_test), average='weighted'))
+
+test_results_df = pd.DataFrame(test_results.values(), index=test_results.keys(), columns=['tuned mnb', 'tuned lr', 'voting clf'])
+print(test_results_df)
