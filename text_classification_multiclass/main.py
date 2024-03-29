@@ -11,14 +11,16 @@ from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.pipeline import Pipeline
-from sklearn.model_selection import cross_val_score
+from sklearn.model_selection import cross_val_score, cross_val_predict, RandomizedSearchCV
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
+from sklearn.decomposition import PCA, TruncatedSVD
+from sklearn.feature_selection import SelectFromModel
 import warnings
 warnings.filterwarnings("ignore")
 
 from text_preprocessing import text_normalizer as tn
 
-#caching
+# caching
 cache_dir = 'cached_transformers'
 if not Path(cache_dir).exists():
     Path(cache_dir).mkdir(parents=True, exist_ok=True)
@@ -37,7 +39,7 @@ df = pd.read_csv('clean_newsgroups.csv', sep=';')
 df.head()
 df.loc[998, 'Clean Article']
 tn.normalize_text([df.loc[998, 'Clean Article']])
-norm_corpus = tn.normalize_text(text_list=df['Clean Article'])
+norm_corpus = tn.normalize_text(text_list=df['Clean Article'].tolist())
 ##########
 
 # normalize our corpus
@@ -46,68 +48,97 @@ df['Clean Article'] = norm_corpus
 
 df.replace(r'^(\s?)+$', np.nan, regex=True, inplace=True)
 df = df.dropna().reset_index(drop=True)
-#df.head()
+# df.head()
 
 # train-test split
 X_train, X_test, y_train, y_test = train_test_split(df['Clean Article'], df['Target Label'],
                                                     stratify=df['Target Label'], test_size=0.33, random_state=42)
-#train_corpus, test_corpus, train_label_nums, test_label_nums, train_label_names, test_label_names
-X_train, X_test, y_train, y_test = train_test_split(
-    np.array(df['Clean Article']),
-    np.array(df['Target Label']),
-    stratify=np.array(df['Target Label']),
-    test_size=0.33, random_state=42
-)
 
 # Feature engineering with TF-IDF model
 mnb_clf = Pipeline([
     ('tfidf', TfidfVectorizer()),
     ('mnb', MultinomialNB()),
 ], memory=memory)
-mnb_clf.fit(train_corpus, train_label_names)
-y_pred_train_mnb = mnb_clf.predict(train_corpus)
+mnb_clf.fit(X_train, y_train)
+y_pred_train_mnb = mnb_clf.predict(X_train)
+y_score_mnb = cross_val_predict(mnb_clf, X_train, y_train, cv=3, n_jobs=-1, method='predict_proba')
 
 lr_clf = Pipeline([
     ('tfidf', TfidfVectorizer()),
     ('lr', LogisticRegression(random_state=42))
 ], memory=memory)
-lr_clf.fit(train_corpus, train_label_names)
-y_pred_train_lr = lr_clf.predict(train_corpus)
+lr_clf.fit(X_train, y_train)
+y_pred_train_lr = lr_clf.predict(X_train)
+y_score_lr = cross_val_predict(lr_clf, X_train, y_train, cv=3, n_jobs=-1, method='predict_proba')
 
 svm_clf = Pipeline([
     ('tfidf', TfidfVectorizer()),
-    ('svm', SVC(kernel='rbf', random_state=42))
+    ('svm', SVC(kernel='rbf', random_state=42, probability=True))
 ], memory=memory)
-svm_clf.fit(train_corpus, train_label_names) # slowest
-y_pred_train_svm = svm_clf.predict(train_corpus)
+svm_clf.fit(X_train, y_train)  # slowest
+y_pred_train_svm = svm_clf.predict(X_train)
+y_score_svm = cross_val_predict(svm_clf, X_train, y_train, cv=3, n_jobs=-1, method='predict_proba')
 
 rf_clf = Pipeline([
     ('tfidf', TfidfVectorizer()),
     ('rf', RandomForestClassifier(random_state=42))
 ], memory=memory)
-rf_clf.fit(train_corpus, train_label_names)
-y_pred_train_rf = rf_clf.predict(train_corpus)
+rf_clf.fit(X_train, y_train)
+y_pred_train_rf = rf_clf.predict(X_train)
+y_score_rf = cross_val_predict(rf_clf, X_train, y_train, cv=3, n_jobs=-1, method='predict_proba')
 
-def get_metrics(model, y_pred):
+
+def get_metrics(model, y_pred, y_score):
     '''
     output a dictionary containing the model's performance metrics
     on the entire training set and of a 5-fold cross-validation
     by inputting the model and the predicted labels on the train dataset
     '''
     metrics = {
-        'accuracy_train': accuracy_score(train_label_names, y_pred),
-        'accuracy_validation': cross_val_score(model, train_corpus, train_label_names, scoring='accuracy', cv=3, n_jobs=-1).mean(),
-        'precision_train': precision_score(train_label_names, y_pred, average='weighted'),
-        'precision_validation': cross_val_score(model, train_corpus, train_label_names, cv=3, n_jobs=-1, scoring='precision_weighted').mean(),
-        'recall_train': recall_score(train_label_names, y_pred, average='weighted'),
-        'recall_validation': cross_val_score(model, train_corpus, train_label_names, cv=3, n_jobs=-1, scoring='recall_weighted').mean(),
-        'f1_train': f1_score(train_label_names, y_pred, average='weighted'),
-        'f1_validation': cross_val_score(model, train_corpus, train_label_names, cv=3, n_jobs=-1, scoring='f1_weighted').mean(),
-        'auc_train': roc_auc_score(train_label_names, y_pred, average='weighted'),
-        'auc_validation': cross_val_score(model, train_corpus, train_label_names, cv=3, n_jobs=-1, scoring='roc_auc_weighted').mean(),
+        'accuracy_train': accuracy_score(y_train, y_pred),
+        'accuracy_validation': cross_val_score(model, X_train, y_train, scoring='accuracy', cv=3, n_jobs=-1).mean(),
+        'precision_train': precision_score(y_train, y_pred, average='weighted'),
+        'precision_validation': cross_val_score(model, X_train, y_train, cv=3, n_jobs=-1,
+                                                scoring='precision_weighted').mean(),
+        'recall_train': recall_score(y_train, y_pred, average='weighted'),
+        'recall_validation': cross_val_score(model, X_train, y_train, cv=3, n_jobs=-1,
+                                             scoring='recall_weighted').mean(),
+        'f1_train': f1_score(y_train, y_pred, average='weighted'),
+        'f1_validation': cross_val_score(model, X_train, y_train, cv=3, n_jobs=-1, scoring='f1_weighted').mean(),
+        'roc_auc_score': roc_auc_score(y_train, y_score, average='weighted', multi_class='ovr'),
     }
     return metrics
 
-metrics_mnb = pd.DataFrame(pd.Series(get_metrics(mnb_clf, y_pred_train_mnb)), columns=['mnb'])
-cross_val_score(mnb_clf, train_corpus, train_label_names, cv=3, n_jobs=-1, scoring='precision_weighted').mean()
-roc_auc_score(train_label_names, y_pred_train_mnb)
+
+metrics_df = []
+for clf, y_pred_train, y_score in [(mnb_clf, y_pred_train_mnb, y_score_mnb),
+                                   (lr_clf, y_pred_train_lr, y_score_lr),
+                                   (svm_clf, y_pred_train_svm, y_score_svm),
+                                   (rf_clf, y_pred_train_rf, y_score_rf)]:
+    col_name = list(clf.named_steps.keys())[1]
+    metrics_df.append(pd.Series(get_metrics(clf, y_pred_train, y_score), name=col_name).to_frame())
+
+metrics_compare = pd.concat(metrics_df, axis=1)
+print(metrics_compare)
+
+# try_lr_clf = lr_clf = Pipeline([
+#     ('tfidf', TfidfVectorizer()),
+#     ('svd', TruncatedSVD(n_components=100, random_state=42)),
+#     ('lr', LogisticRegression(random_state=42))
+# ])
+# try_lr_clf.fit(X_train, y_train)
+# try_y_pred_train_lr = try_lr_clf.predict(X_train)
+# try_y_score_lr = cross_val_predict(try_lr_clf, X_train, y_train, cv=3, n_jobs=-1, method='predict_proba')
+# print(pd.Series(get_metrics(try_lr_clf, try_y_pred_train_lr, try_y_score_lr)))
+
+# try_lr_clf = lr_clf = Pipeline([
+#     ('tfidf', TfidfVectorizer()),
+#     ('feature_selection', SelectFromModel(RandomForestClassifier(random_state=42))),
+#     ('lr', LogisticRegression(random_state=42))
+# ])
+# try_lr_clf.fit(X_train, y_train)
+# try_y_pred_train_lr = try_lr_clf.predict(X_train)
+# try_y_score_lr = cross_val_predict(try_lr_clf, X_train, y_train, cv=3, n_jobs=-1, method='predict_proba')
+# print(pd.Series(get_metrics(try_lr_clf, try_y_pred_train_lr, try_y_score_lr)))
+
+# Randomized Search
