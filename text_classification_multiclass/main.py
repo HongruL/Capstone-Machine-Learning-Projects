@@ -34,13 +34,6 @@ data_labels_map = dict(enumerate(data.target_names))
 corpus, target_labels, target_names = data.data, data.target, [data_labels_map[label] for label in data.target]
 df = pd.DataFrame({'Article': corpus, 'Target Label': target_labels, 'Target Name': target_names})
 df.drop(index=df[(df['Article'].str.strip() == '')].index, inplace=True)
-#########
-df = pd.read_csv('clean_newsgroups.csv', sep=';')
-df.head()
-df.loc[998, 'Clean Article']
-tn.normalize_text([df.loc[998, 'Clean Article']])
-norm_corpus = tn.normalize_text(text_list=df['Clean Article'].tolist())
-##########
 
 # normalize our corpus
 norm_corpus = tn.normalize_text(text_list=df['Article'].tolist())
